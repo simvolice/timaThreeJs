@@ -1,28 +1,29 @@
 var container, controls;
-var camera, scene, renderer, boundingbox;
 
-var selectedObjects = [];
-var composer, effectFXAA, outlinePass;
-var params = {
-    edgeStrength: 3.0,
-    edgeGlow: 0.0,
-    edgeThickness: 1.0,
-    pulsePeriod: 1,
-    rotate: false,
-    usePatternTexture: false
-};
+
+var camera, scene, renderer, boundingbox, arrAllChildren, arrAllChildrenName, ControllerChangeList;
+
+
 
 init();
 animate();
+
+
 function init() {
+    arrAllChildrenName = [];
 
 
-    var raycaster = new THREE.Raycaster();
-    var mouse = new THREE.Vector2();
+
+    var FizzyText = function() {
+        this["Выберите датчик"] = '';
+
+    };
+
+    var text = new FizzyText();
+    var gui = new dat.GUI();
 
 
-    var obj3d = new THREE.Object3D();
-    var group = new THREE.Group();
+    scene = new THREE.Scene();
 
     container = document.createElement( 'div' );
     document.body.appendChild( container );
@@ -33,20 +34,30 @@ function init() {
 
     container.appendChild( renderer.domElement );
 
-    camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 44602.133,  2961853.250);
+    camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 100, 2961853.250);
     camera.position.set(93966.352, -93731.602, 148673.781);
+
+
     camera.up = new THREE.Vector3(0, 0, 1);
     var target = new THREE.Vector3(0.000, 0.000, 0.000);
     camera.lookAt(target);
 
 
 
-    controls = new THREE.OrbitControls( camera, renderer.domElement );
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.25;
+    controls = new THREE.TrackballControls(camera, renderer.domElement);
+
+    controls.rotateSpeed = 3.6;
+    controls.zoomSpeed = 0.8;
+    controls.panSpeed = 1;
+
+    controls.noZoom = false;
+    controls.noPan = false;
+
+    controls.staticMoving = false;
+    controls.dynamicDampingFactor = 0.12;
 
 
-    scene = new THREE.Scene();
+
     scene.add( new THREE.HemisphereLight());
     var directionalLight = new THREE.DirectionalLight( 0xffeedd );
     directionalLight.position.set( 0, 0, 2 );
@@ -61,113 +72,124 @@ function init() {
     scene.add( plane );
 
 
-
-
     var loader = new THREE.TDSLoader();
     loader.setResourcePath( 'texture/' );
     loader.load( 'model/try.3DS', function ( object ) {
 
-        obj3d.add( object );
+
+
+        arrAllChildren = object.children;
+
+        for (const arrAllChildrenItem of arrAllChildren) {
+            arrAllChildrenName.push(arrAllChildrenItem.name);
+        }
+
+
+        ControllerChangeList = gui.add(text, 'Выберите датчик', arrAllChildrenName );
+
+        ControllerChangeList.onChange(function (val) {
+
+
+            for (const arrAllChildrenItem of arrAllChildren) {
+
+
+                if (arrAllChildrenItem.name === val) {
+
+
+
+                    fitCameraToObject(camera, arrAllChildrenItem, undefined, controls);
+
+
+                }
+            }
+
+
+        });
+
+
+        scene.add( object );
+
 
     });
 
 
-    scene.add( group );
-    group.add( obj3d );
 
-
-    composer = new THREE.EffectComposer( renderer );
-    var renderPass = new THREE.RenderPass( scene, camera );
-    composer.addPass( renderPass );
-    outlinePass = new THREE.OutlinePass( new THREE.Vector2( window.innerWidth, window.innerHeight ), scene, camera );
-    outlinePass.pulsePeriod = 1;
-
-    composer.addPass( outlinePass );
-
-
-    var onLoad = function ( texture ) {
-        outlinePass.patternTexture = texture;
-        texture.wrapS = THREE.RepeatWrapping;
-        texture.wrapT = THREE.RepeatWrapping;
-    };
-    var loader1 = new THREE.TextureLoader();
-    loader1.load( 'texture/tri_pattern.jpg', onLoad );
-
-
-    effectFXAA = new THREE.ShaderPass( THREE.FXAAShader );
-    effectFXAA.uniforms[ 'resolution' ].value.set( 1 / window.innerWidth, 1 / window.innerHeight );
-    effectFXAA.renderToScreen = true;
-    composer.addPass( effectFXAA );
 
     window.addEventListener( 'resize', resize, false );
 
-    window.addEventListener( 'mousemove', onTouchMove );
-    window.addEventListener( 'touchmove', onTouchMove );
 
-
-
-    function onTouchMove( event ) {
-
-
-
-        var x, y;
-        if ( event.changedTouches ) {
-            x = event.changedTouches[ 0 ].pageX;
-            y = event.changedTouches[ 0 ].pageY;
-        } else {
-            x = event.clientX;
-            y = event.clientY;
-        }
-        mouse.x = ( x / window.innerWidth ) * 2 - 1;
-        mouse.y = - ( y / window.innerHeight ) * 2 + 1;
-        checkIntersection();
-    }
-    function addSelectedObject( object ) {
-        selectedObjects = [];
-        selectedObjects.push( object );
-    }
-    function checkIntersection() {
-        raycaster.setFromCamera( mouse, camera );
-        var intersects = raycaster.intersectObjects( [ scene ], true );
-        if ( intersects.length > 0 ) {
-            var selectedObject = intersects[ 0 ].object;
-            addSelectedObject( selectedObject );
-            outlinePass.selectedObjects = selectedObjects;
-        } else {
-            outlinePass.selectedObjects = [];
-        }
-    }
 
 
 }
 
+const fitCameraToObject = function ( camera, object, offset, controls ) {
+
+    offset = offset || 1.25;
+
+    const boundingBox = new THREE.Box3();
+
+    // get bounding box of object - this will be used to setup controls and camera
+    boundingBox.setFromObject( object );
+
+    const center = boundingBox.getCenter();
+
+    const size = boundingBox.getSize();
+
+    // get the max side of the bounding box (fits to width OR height as needed )
+    const maxDim = Math.max( size.x, size.y, size.z );
+    const fov = camera.fov * ( Math.PI / 180 );
+    let cameraZ = Math.abs( maxDim / 4 * Math.tan( fov * 2 ) );
+
+    cameraZ *= offset; // zoom out a little so that objects don't fill the screen
+
+    camera.position.z = cameraZ;
+
+    const minZ = boundingBox.min.z;
+    const cameraToFarEdge = ( minZ < 0 ) ? -minZ + cameraZ : cameraZ - minZ;
+
+    camera.far = cameraToFarEdge * 3;
+    camera.updateProjectionMatrix();
+
+    if ( controls ) {
+
+        // set camera to rotate around center of loaded object
+        controls.target = center;
+
+        // prevent camera from zooming out far enough to create far plane cutoff
+        //controls.maxDistance = cameraToFarEdge * 2;
+
+
+        controls.maxDistance = 11000;
+
+
+        controls.update();
+
+    } else {
+
+        camera.lookAt( center )
+
+    }
+
+};
 
 
 
 function resize() {
+
+
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize( window.innerWidth, window.innerHeight );
-    composer.setSize( window.innerWidth, window.innerHeight );
-    effectFXAA.uniforms[ 'resolution' ].value.set( 1 / window.innerWidth, 1 / window.innerHeight );
+
 
 }
 
 
 function animate() {
 
-
-
-
     controls.update();
-    composer.render();
     renderer.render( scene, camera );
     requestAnimationFrame( animate );
 
-
-    var timer = performance.now();
-    if ( params.rotate ) {
-        group.rotation.y = timer * 0.0001;
-    }
 }
 
