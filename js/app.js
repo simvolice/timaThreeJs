@@ -1,7 +1,7 @@
 var container, controls;
 
 
-var camera, scene, renderer, boundingbox, arrAllChildren, arrAllChildrenName, ControllerChangeList;
+var camera, scene, renderer, boundingbox, arrAllChildren, arrAllChildrenName, ControllerChangeList, domEvents;
 
 
 
@@ -59,26 +59,56 @@ function init() {
 
 
     scene.add( new THREE.HemisphereLight());
-    var directionalLight = new THREE.DirectionalLight( 0xffeedd );
-    directionalLight.position.set( 0, 0, 2 );
+    var directionalLight = new THREE.DirectionalLight( 0xffffff, 1.1 );
+    directionalLight.position.set( 10, 20, 15 );
     scene.add( directionalLight );
 
-    var geometry = new THREE.PlaneBufferGeometry( 150000, 150000, 32 );
-    var material = new THREE.MeshBasicMaterial( {color: 0x515151, side: THREE.DoubleSide} );
-    var plane = new THREE.Mesh( geometry, material );
+    domEvents = new THREEx.DomEvents(camera, renderer.domElement);
 
-    plane.position.z = -76000;
-
-    scene.add( plane );
+    materials = {};
+    new_material = new THREE.MeshLambertMaterial();
 
 
     var loader = new THREE.TDSLoader();
     loader.setResourcePath( 'texture/' );
     loader.load( 'model/try.3DS', function ( object ) {
-
-
-
         arrAllChildren = object.children;
+
+        for (const childrenItem of arrAllChildren) {
+
+
+            if (childrenItem.material.type == "MeshFaceMaterial"){
+
+                childrenItem.material = childrenItem.material.materials[1]
+
+            }
+
+            materials[childrenItem.uuid] = childrenItem.material;
+
+
+            domEvents.addEventListener(childrenItem, 'mouseover', function(event){
+                new_material.color = new THREE.Color( "skyblue" );
+                childrenItem.material = new_material;
+               return renderer.render(scene, camera)
+            }, false)
+
+
+            domEvents.addEventListener(childrenItem, 'mouseout', function(event){
+                childrenItem.material = materials[childrenItem.uuid]
+               return renderer.render(scene, camera)
+            }, false)
+
+
+            domEvents.addEventListener(childrenItem, 'dblclick', function(event){
+
+                fitCameraToObject(camera, childrenItem, undefined, controls);
+
+            }, false)
+
+
+        }
+
+
 
         for (const arrAllChildrenItem of arrAllChildren) {
             arrAllChildrenName.push(arrAllChildrenItem.name);
@@ -126,6 +156,8 @@ const fitCameraToObject = function ( camera, object, offset, controls ) {
 
     offset = offset || 1.25;
 
+
+
     const boundingBox = new THREE.Box3();
 
     // get bounding box of object - this will be used to setup controls and camera
@@ -134,6 +166,13 @@ const fitCameraToObject = function ( camera, object, offset, controls ) {
     const center = boundingBox.getCenter();
 
     const size = boundingBox.getSize();
+
+
+
+
+
+
+
 
     // get the max side of the bounding box (fits to width OR height as needed )
     const maxDim = Math.max( size.x, size.y, size.z );
@@ -148,7 +187,24 @@ const fitCameraToObject = function ( camera, object, offset, controls ) {
     const cameraToFarEdge = ( minZ < 0 ) ? -minZ + cameraZ : cameraZ - minZ;
 
     camera.far = cameraToFarEdge * 3;
+
+
+
+
+
+
+
+
+
+
+
     camera.updateProjectionMatrix();
+
+
+
+
+
+
 
     if ( controls ) {
 
@@ -158,8 +214,35 @@ const fitCameraToObject = function ( camera, object, offset, controls ) {
         // prevent camera from zooming out far enough to create far plane cutoff
         //controls.maxDistance = cameraToFarEdge * 2;
 
-
         controls.maxDistance = 11000;
+
+
+
+
+        let indexCubeSelect = arrAllChildren.findIndex(item => item.name === "cubeSelect");
+
+
+        if (indexCubeSelect !== -1) {
+            arrAllChildren.pop();
+
+        }
+
+
+
+
+        let objCopy = object.clone();
+        new_material.color = new THREE.Color( "skyblue" );
+
+        objCopy.material = new_material;
+        objCopy.position.x += 50;
+        objCopy.position.y += 50;
+        objCopy.position.z += 50;
+
+        objCopy.name = "cubeSelect";
+        objCopy.parent = object.parent;
+
+        arrAllChildren.push( objCopy );
+
 
 
         controls.update();
