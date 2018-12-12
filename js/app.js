@@ -1,7 +1,7 @@
 var container, controls;
 
 
-var camera, scene, renderer, boundingbox, arrAllChildren, arrAllChildrenName, ControllerChangeList, domEvents;
+var camera, scene, renderer, boundingbox, arrAllChildren, arrAllChildrenName, ControllerChangeList, domEvents, mainObj;
 
 
 
@@ -74,6 +74,7 @@ function init() {
     loader.load( 'model/try.3DS', function ( object ) {
         arrAllChildren = object.children;
 
+        mainObj = object;
         for (const childrenItem of arrAllChildren) {
 
 
@@ -218,6 +219,10 @@ const fitCameraToObject = function ( camera, object, offset, controls ) {
 
 
 
+        setTimeout(function () {
+            controls.maxDistance = cameraToFarEdge * 2;
+            controls.update();
+        }, 1000);
 
         let indexCubeSelect = arrAllChildren.findIndex(item => item.name === "cubeSelect");
 
