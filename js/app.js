@@ -34,7 +34,7 @@ function init() {
 
     container.appendChild( renderer.domElement );
 
-    camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 100, 2961853.250);
+    camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 100, 1961853.250);
     camera.position.set(93966.352, -93731.602, 148673.781);
 
 
@@ -112,6 +112,7 @@ function init() {
 
 
         for (const arrAllChildrenItem of arrAllChildren) {
+            arrAllChildrenName.push("Объект целиком");
             arrAllChildrenName.push(arrAllChildrenItem.name);
         }
 
@@ -120,7 +121,18 @@ function init() {
 
         ControllerChangeList.onChange(function (val) {
 
+         if (val === "Объект целиком"){
 
+
+
+
+             controls.target = new THREE.Vector3();
+
+             controls.update();
+
+
+
+         }
             for (const arrAllChildrenItem of arrAllChildren) {
 
 
